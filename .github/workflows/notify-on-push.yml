@@ -16,9 +16,29 @@ jobs:
     name: Send notification to Slack
     runs-on: ubuntu-latest
     steps:
-      - name: Send notification
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          payload: ${{ toJson({ channel: '#C091ACD7TPG', text: format(':mailbox_with_mail: New commit to a2a-gateway :bust_in_silhouette: Author: {0} :herb: Branch: {1} :memo: Commit: {2}', github.actor, github.ref_name, (github.event.head_commit && github.event.head_commit.message) || 'No commit message') }) }}
+      - name: Send Slack notification
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          # 准备消息内容
+          COMMIT_AUTHOR="${{ github.actor }}"
+          COMMIT_SHA="${{ github.sha }}"
+          COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
+          COMMIT_URL="${{ github.event.head_commit.url }}"
+          BRANCH="${{ github.ref_name }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          
+          # 获取变更的文件
+          ADDED_FILES="${{ github.event.head_commit.added }}"
+          MODIFIED_FILES="${{ github.event.head_commit.modified }}"
+          CHANGED_FILES="${ADDED_FILES} ${MODIFIED_FILES}"
+          
+          # 构建 JSON payload（使用 printf 避免转义问题）
+          PAYLOAD=$(printf '{"text":"📬 New commit to a2a-gateway\\n\\n👤 Author: %s\\n🌿 Branch: %s\\n📝 Commit: %s\\n🔗 URL: %s\\n🕐 Time: %s\\n\\n📁 Changed files:\\n%s\\n\\n🤖 三弟正在分析这次提交..."}' "$COMMIT_AUTHOR" "$BRANCH" "$COMMIT_MESSAGE" "$COMMIT_URL" "$TIMESTAMP" "$CHANGED_FILES")
+          
+          # 发送 Slack 消息
+          curl -X POST "${SLACK_WEBHOOK_URL}" \
+            -H 'Content-Type: application/json' \
+            -d "$PAYLOAD"
+          
+          echo "Slack notification sent successfully"
