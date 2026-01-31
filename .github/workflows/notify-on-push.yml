@@ -37,3 +37,4 @@ jobs:
             -d '{"text":"📬 New commit to a2a-gateway\n\n👤 Author: '"'"${COMMIT_AUTHOR}"'"'\n🌿 Branch: '"'"${BRANCH}"'"'\n📝 Commit: '"'"${COMMIT_MESSAGE:0:100}"'"'...\n🔗 URL: '"'"${COMMIT_URL}"'"'\n🕐 Time: '"'"${TIMESTAMP}"'"'\n\n📁 Changed files:\n'"'"${CHANGED_FILES}"'"'\n\n🤖 三弟正在分析这次提交..."}'
           
           echo "Slack notification sent successfully"
+ß
