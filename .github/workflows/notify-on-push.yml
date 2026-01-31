@@ -20,20 +20,16 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          # 准备消息内容
           export COMMIT_AUTHOR="${{ github.actor }}"
           export COMMIT_SHA="${{ github.sha }}"
           export COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
           export COMMIT_URL="${{ github.event.head_commit.url }}"
           export BRANCH="${{ github.ref_name }}"
           export TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          
-          # 获取变更的文件
           export ADDED_FILES="${{ github.event.head_commit.added }}"
           export MODIFIED_FILES="${{ github.event.head_commit.modified }}"
           export CHANGED_FILES="${ADDED_FILES} ${MODIFIED_FILES}"
           
-          # 使用 jq 构建 JSON payload（使用 --arg 传递环境变量）
           PAYLOAD=$(jq -n \
             --arg author="$COMMIT_AUTHOR" \
             --arg branch="$BRANCH" \
@@ -43,7 +39,6 @@ jobs:
             --arg files="$CHANGED_FILES" \
             '{"text": "📬 New commit to a2a-gateway\n\n👤 Author: \($author)\n🌿 Branch: \($branch)\n📝 Commit: \($message[:100])...\n🔗 URL: \($url)\n🕐 Time: \($timestamp)\n\n📁 Changed files:\n\($files)\n\n🤖 三弟正在分析这次提交..."}')
           
-          # 发送 Slack 消息
           curl -X POST "${SLACK_WEBHOOK_URL}" \
             -H 'Content-Type: application/json' \
             -d "$PAYLOAD"
