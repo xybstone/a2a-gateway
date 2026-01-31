@@ -62,12 +62,11 @@ class Settings(BaseSettings):
     )
     metrics_port: int = Field(default=8000, description="Port to expose metrics on")
 
-    class Config:
-        """Settings configuration"""
-
-        env_prefix = "A2A_"
-        case_sensitive = False
-        env_file = ".env"
+    model_config = {
+        "env_prefix": "A2A_",
+        "case_sensitive": False,
+        "env_file": ".env",
+    }
 
 
 settings = Settings()

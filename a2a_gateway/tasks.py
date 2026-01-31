@@ -8,7 +8,6 @@ from a2a_gateway.config import settings
 from a2a_gateway.redis_store import RedisTaskStore
 from a2a_gateway.memory_store import InMemoryTaskStore
 
-
 # Concurrency control for task execution
 task_semaphore = asyncio.BoundedSemaphore(settings.max_concurrent_tasks)
 

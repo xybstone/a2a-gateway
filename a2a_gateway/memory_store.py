@@ -1,7 +1,7 @@
 """In-memory task store implementation"""
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any, Dict, Optional
 
 
@@ -29,11 +29,11 @@ class InMemoryTaskStore:
                 "skill": skill,
                 "status": {
                     "state": "submitted",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "error": None,
                 },
                 "artifacts": [],
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
             }
 
     async def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
@@ -46,9 +46,9 @@ class InMemoryTaskStore:
         async with self.lock:
             if task_id in self.tasks:
                 self.tasks[task_id]["status"]["state"] = status
-                self.tasks[task_id]["status"][
-                    "timestamp"
-                ] = datetime.utcnow().isoformat()
+                self.tasks[task_id]["status"]["timestamp"] = datetime.now(
+                    UTC
+                ).isoformat()
 
     async def update_task_result(self, task_id: str, result: Dict[str, Any]):
         """Update task result"""
@@ -63,7 +63,7 @@ class InMemoryTaskStore:
         async with self.lock:
             if task_id in self.tasks:
                 return self.tasks[task_id]["status"]["timestamp"]
-            return datetime.utcnow().isoformat()
+            return datetime.now(UTC).isoformat()
 
     async def get_active_count(self) -> int:
         """Get number of active tasks"""

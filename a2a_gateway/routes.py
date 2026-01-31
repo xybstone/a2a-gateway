@@ -1,12 +1,19 @@
 """API routes for A2A Coding Gateway"""
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 from typing import Any, Dict, Optional
 
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
 from a2a_gateway.a2a_sdk import get_agent_card
+from a2a_gateway.config import settings
 from a2a_gateway.tasks import task_store
 from a2a_gateway.tools import execute_task_with_tool
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter()
 
@@ -36,18 +43,32 @@ async def get_agent_card_endpoint():
 
 
 @router.post("/")
-async def jsonrpc_endpoint(request: JSONRPCRequest):
+@limiter.limit("10/minute")
+async def jsonrpc_endpoint(request: Request, jsonrpc_request: JSONRPCRequest):
     """Handle JSON-RPC requests"""
     try:
-        if request.method == "tasks/send":
-            return await handle_tasks_send(request)
-        elif request.method == "tasks/get":
-            return await handle_tasks_get(request)
+        # API Key authentication
+        if settings.api_key:
+            api_key = request.headers.get("X-API-Key")
+            if api_key != settings.api_key:
+                return JSONRPCResponse(
+                    id=jsonrpc_request.id,
+                    error={
+                        "code": -32602,
+                        "message": "Invalid params",
+                        "data": "Invalid API Key",
+                    },
+                )
+
+        if jsonrpc_request.method == "tasks/send":
+            return await handle_tasks_send(jsonrpc_request)
+        elif jsonrpc_request.method == "tasks/get":
+            return await handle_tasks_get(jsonrpc_request)
         else:
             raise HTTPException(status_code=404, detail="Method not found")
     except Exception as e:
         return JSONRPCResponse(
-            id=request.id,
+            id=jsonrpc_request.id,
             error={"code": -32603, "message": "Internal error", "data": str(e)},
         )
 

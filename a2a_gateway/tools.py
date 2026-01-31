@@ -5,6 +5,7 @@ import pty
 import os
 import subprocess
 import structlog
+import re
 from typing import Any, Dict, List
 
 from a2a_gateway.config import settings
@@ -12,6 +13,20 @@ from a2a_gateway.tasks import task_store, task_semaphore
 
 # Configure logger
 logger = structlog.get_logger(__name__)
+
+# Log sanitization patterns
+SANITIZATION_PATTERNS = [
+    (re.compile(r"X-API-Key:\s*\S+"), "X-API-Key: ***REDACTED***"),
+    (re.compile(r'password["\s:]+\S+'), "password: ***REDACTED***"),
+    (re.compile(r'token["\s:]+\S+'), "token: ***REDACTED***"),
+]
+
+
+def sanitize_log(message: str) -> str:
+    """Sanitize sensitive information in log messages"""
+    for pattern, replacement in SANITIZATION_PATTERNS:
+        message = pattern.sub(replacement, message)
+    return message
 
 
 async def execute_task_with_tool(task_id: str, message: Dict[str, Any], skill: str):
@@ -30,7 +45,9 @@ async def execute_task_with_tool(task_id: str, message: Dict[str, Any], skill: s
                 result = {"artifacts": [], "error": f"Unsupported skill: {skill}"}
 
         if "error" in result:
-            logger.error("Task execution failed", task_id=task_id, error=result["error"])
+            logger.error(
+                "Task execution failed", task_id=task_id, error=result["error"]
+            )
             await task_store.update_task_status(task_id, "failed")
         else:
             logger.info("Task execution completed", task_id=task_id)
@@ -90,7 +107,9 @@ async def run_pty_command(task_id: str, command: List[str], cwd: str) -> Dict[st
     loop = asyncio.get_event_loop()
     try:
         return await asyncio.wait_for(
-            loop.run_in_executor(None, _run_pty_command_blocking, task_id, command, cwd),
+            loop.run_in_executor(
+                None, _run_pty_command_blocking, task_id, command, cwd
+            ),
             timeout=settings.task_timeout,
         )
     except asyncio.TimeoutError:
@@ -99,7 +118,9 @@ async def run_pty_command(task_id: str, command: List[str], cwd: str) -> Dict[st
         return {"artifacts": [], "error": error_msg}
 
 
-def _run_pty_command_blocking(task_id: str, command: List[str], cwd: str) -> Dict[str, Any]:
+def _run_pty_command_blocking(
+    task_id: str, command: List[str], cwd: str
+) -> Dict[str, Any]:
     """Run command in PTY mode (blocking version)"""
     logger.debug("PTY command started (blocking)", task_id=task_id)
     master = None

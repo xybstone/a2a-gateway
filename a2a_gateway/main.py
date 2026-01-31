@@ -1,11 +1,15 @@
 """A2A Coding Gateway - FastAPI application"""
 
+import contextlib
 import sys
 
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import generate_latest
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from a2a_gateway.config import settings
 from a2a_gateway.routes import router
@@ -29,12 +33,34 @@ structlog.configure(
 
 logger = structlog.get_logger(__name__)
 
+
+# Define lifespan event handler
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan event handler for startup and shutdown"""
+    from a2a_gateway import __version__
+
+    logger.info("Starting A2A Coding Gateway", version=__version__)
+    await task_store.initialize()
+
+    yield
+
+    logger.info("Shutting down A2A Coding Gateway")
+    await task_store.close()
+
+
 # Create FastAPI application
 app = FastAPI(
     title="A2A Coding Gateway",
     version="1.0.0",
     description="A2A Coding Gateway for Clawdbot",
+    lifespan=lifespan,
 )
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure CORS
 app.add_middleware(
@@ -47,22 +73,6 @@ app.add_middleware(
 
 # Include routers
 app.include_router(router)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize application on startup"""
-    from a2a_gateway import __version__
-
-    logger.info("Starting A2A Coding Gateway", version=__version__)
-    await task_store.initialize()
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup application on shutdown"""
-    logger.info("Shutting down A2A Coding Gateway")
-    await task_store.close()
 
 
 @app.get("/health")

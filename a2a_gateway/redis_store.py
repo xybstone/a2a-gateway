@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any, Dict, Optional
 
 import redis.asyncio as redis
@@ -36,16 +36,16 @@ class RedisTaskStore:
             "skill": skill,
             "status": {
                 "state": "submitted",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "error": None,
             },
             "artifacts": [],
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
 
         pipe = self.client.pipeline()
         pipe.set(f"task:{task_id}", json.dumps(task_data))
-        pipe.zadd("tasks:pending", {task_id: datetime.utcnow().timestamp()})
+        pipe.zadd("tasks:pending", {task_id: datetime.now(UTC).timestamp()})
         await pipe.execute()
 
     async def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
@@ -60,7 +60,7 @@ class RedisTaskStore:
         task = await self.get_task(task_id)
         if task:
             task["status"]["state"] = status
-            task["status"]["timestamp"] = datetime.utcnow().isoformat()
+            task["status"]["timestamp"] = datetime.now(UTC).isoformat()
 
             # Move task between status sets
             pipe = self.client.pipeline()
@@ -77,13 +77,13 @@ class RedisTaskStore:
 
             # Add to new status set
             if status == "submitted":
-                pipe.zadd("tasks:pending", {task_id: datetime.utcnow().timestamp()})
+                pipe.zadd("tasks:pending", {task_id: datetime.now(UTC).timestamp()})
             elif status == "working":
-                pipe.zadd("tasks:working", {task_id: datetime.utcnow().timestamp()})
+                pipe.zadd("tasks:working", {task_id: datetime.now(UTC).timestamp()})
             elif status == "completed":
-                pipe.zadd("tasks:completed", {task_id: datetime.utcnow().timestamp()})
+                pipe.zadd("tasks:completed", {task_id: datetime.now(UTC).timestamp()})
             elif status == "failed":
-                pipe.zadd("tasks:failed", {task_id: datetime.utcnow().timestamp()})
+                pipe.zadd("tasks:failed", {task_id: datetime.now(UTC).timestamp()})
 
             await pipe.execute()
 
@@ -101,7 +101,7 @@ class RedisTaskStore:
         task = await self.get_task(task_id)
         if task:
             return task["status"]["timestamp"]
-        return datetime.utcnow().isoformat()
+        return datetime.now(UTC).isoformat()
 
     async def get_active_count(self) -> int:
         """Get number of active tasks from Redis"""
