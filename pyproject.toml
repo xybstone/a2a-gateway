@@ -1,0 +1,35 @@
+[project]
+name = "a2a-coding-gateway"
+version = "1.0.0"
+description = "A2A Coding Gateway for Clawdbot"
+authors = [
+    { name = "三弟", email = "sandi@example.com" }
+]
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "ptyprocess>=0.7.0",
+    "pydantic>=2.0.0",
+    "structlog>=23.0.0",
+    "prometheus-client>=0.19.0",
+    "redis>=5.0.0",
+    "pydantic-settings>=2.0.0",
+    "slowapi>=0.1.8"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "httpx>=0.25.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["a2a_gateway"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
