@@ -1,0 +1,74 @@
+version: "3.8"
+
+services:
+  # A2A Gateway service
+  a2a-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: a2a-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+      - REDIS_ENABLED=${REDIS_ENABLED:-false}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-5}
+      - DEFAULT_TIMEOUT=${DEFAULT_TIMEOUT:-600}
+    volumes:
+      - ./a2a_gateway:/app
+      - ./logs:/app/logs
+    depends_on:
+      - redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis service (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: a2a-gateway-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    command: redis-server --appendonly yes --save 900 1 --save 300 10 --save 60 10000
+
+  # Nginx reverse proxy (optional, for production)
+  nginx:
+    image: nginx:alpine
+    container_name: a2a-gateway-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:44:ro
+      - ./nginx/ssl:/etc/nginx/ssl:44:ro
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      - a2a-gateway:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - a2a-gateway-network
+
+# Volumes
+volumes:
+  redis-data:
+  nginx-logs:
+
+# Networks
+networks:
+  a2a-gateway-network:
+    driver: bridge
