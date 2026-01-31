@@ -21,7 +21,7 @@ jobs:
         with:
           payload: |
             {
-              "text": "📬 New commit to a2a-gateway\n\n👤 Author: ${{ github.actor }}\n🌿 Branch: main\n📝 Commit: ${{ github.event.head_commit.message }}\n🔗 URL: ${{ github.event.head_commit.url }}\n\n🤖 三弟正在分析这次提交..."
+              "text": "📬 New commit to a2a-gateway\n\n👤 Author: ${{ toJson(github.actor) }}\n🌿 Branch: ${{ toJson(github.ref) }}\n📝 Commit: ${{ toJson(github.event.head_commit.message) }}\n🔗 URL: ${{ toJson(github.event.head_commit.url) }}\n🕐 Time: ${{ toJson(github.event.head_commit.timestamp) }}\n\n🤖 三弟正在分析这次提交..."
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
