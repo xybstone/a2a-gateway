@@ -19,7 +19,7 @@ jobs:
       - name: Send notification
         uses: slackapi/slack-github-action@v1.24.0
         with:
-          payload: ${{ toJson({ text: format(':mailbox_with_mail: New commit to a2a-gateway :bust_in_silhouette: Author: {0} :herb: Branch: {1} :memo: Commit: {2}', github.actor, github.ref_name, github.event.head_commit.message) }) }}
+          payload: ${{ toJson({ text: format(':mailbox_with_mail: New commit to a2a-gateway :bust_in_silhouette: Author: {0} :herb: Branch: {1} :memo: Commit: {2}', github.actor, github.ref_name, github.event.head_commit.message || 'No commit message', github.event.head_commit.url) }) }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          slack-channel: "#all-forai"
+          SLACK_CHANNEL: "#C091ACD7TPG"
