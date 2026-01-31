@@ -20,27 +20,12 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          export COMMIT_AUTHOR="${{ github.actor }}"
-          export COMMIT_SHA="${{ github.sha }}"
-          export COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
-          export COMMIT_URL="${{ github.event.head_commit.url }}"
-          export BRANCH="${{ github.ref_name }}"
-          export TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          export ADDED_FILES="${{ github.event.head_commit.added }}"
-          export MODIFIED_FILES="${{ github.event.head_commit.modified }}"
-          export CHANGED_FILES="${ADDED_FILES} ${MODIFIED_FILES}"
+          # 简化 Slack 消息 - 不使用 jq 或 Python
+          echo "Sending notification to Slack..."
           
-          PAYLOAD=$(jq -n \
-            --arg author="$COMMIT_AUTHOR" \
-            --arg branch="$BRANCH" \
-            --arg message="$COMMIT_MESSAGE" \
-            --arg url="$COMMIT_URL" \
-            --arg timestamp="$TIMESTAMP" \
-            --arg files="$CHANGED_FILES" \
-            '{"text": "📬 New commit to a2a-gateway\n\n👤 Author: \($author)\n🌿 Branch: \($branch)\n📝 Commit: \($message[:100])...\n🔗 URL: \($url)\n🕐 Time: \($timestamp)\n\n📁 Changed files:\n\($files)\n\n🤖 三弟正在分析这次提交..."}')
-          
+          # 直接调用 curl
           curl -X POST "${SLACK_WEBHOOK_URL}" \
             -H 'Content-Type: application/json' \
-            -d "$PAYLOAD"
-          
-          echo "Slack notification sent successfully"
+            -d '{
+              "text": "📬 New commit to a2a-gateway\n\n👤 Author: '"'"${{ github.actor }}"'"'\n🌿 Branch: main\n📝 Commit: '"'"${{ github.event.head_commit.message }}"'"'\n🔗 URL: '"'"${{ github.event.head_commit.url }}"'"'\n🕐 Time: '"'"$(date -u +"%Y-%m-%d %H:%M:%S UTC")"'"'\n\n🤖 三弟正在分析这次提交..."
+            }'
