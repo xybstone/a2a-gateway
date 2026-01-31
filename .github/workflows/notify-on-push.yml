@@ -1,0 +1,44 @@
+name: Notify on Push to Slack
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '**.txt'
+      - 'docs/**'
+      - '.gitignore'
+      - '.gitattributes'
+
+jobs:
+  notify-slack:
+    name: Send notification to Slack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_CHANNEL: "#all-forai"
+        run: |
+          # 准备消息内容
+          COMMIT_AUTHOR="${{ github.actor }}"
+          COMMIT_SHA="${{ github.sha }}"
+          COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
+          COMMIT_URL="${{ github.event.head_commit.url }}"
+          BRANCH="${{ github.ref_name }}"
+          
+          # 获取变更的文件（最多 10 个）
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD | head -10 | tr '\n' ',' | sed 's/,$//')
+          
+          # 格式化时间
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          
+          # 发送 Slack 消息
+          curl -X POST "${SLACK_WEBHOOK_URL}" \
+            -H 'Content-Type: application/json' \
+            --data "{
+              \"text\": \"📬 New commit to a2a-gateway\\n\\n👤 Author: ${COMMIT_AUTHOR}\\n🔗 Branch: ${BRANCH}\\n📝 Commit: ${COMMIT_MESSAGE:0:100}${COMMIT_MESSAGE: +1:}...\\n🔗 URL: ${COMMIT_URL}\\n🕐 Time: ${TIMESTAMP}\\n📁 Changed files: ${CHANGED_FILES}\\n\\n🤖 三弟正在分析这次提交...\"
+            }"
+          
+          echo "Slack notification sent successfully"
