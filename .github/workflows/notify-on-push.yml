@@ -29,12 +29,16 @@ jobs:
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
           
           # 获取变更的文件
-          CHANGED_FILES=$(echo "${{ github.event.head_commit.added }} ${{ github.event.head_commit.modified }}" | tr ' ' '\n' | head -10)
+          ADDED_FILES="${{ github.event.head_commit.added }}"
+          MODIFIED_FILES="${{ github.event.head_commit.modified }}"
+          CHANGED_FILES="${ADDED_FILES} ${MODIFIED_FILES}"
           
-          # 发送 Slack 消息（使用单行 JSON，避免 heredoc 问题）
+          # 构建 JSON payload（使用 printf 避免转义问题）
+          PAYLOAD=$(printf '{"text":"📬 New commit to a2a-gateway\\n\\n👤 Author: %s\\n🌿 Branch: %s\\n📝 Commit: %s\\n🔗 URL: %s\\n🕐 Time: %s\\n\\n📁 Changed files:\\n%s\\n\\n🤖 三弟正在分析这次提交..."}' "$COMMIT_AUTHOR" "$BRANCH" "$COMMIT_MESSAGE" "$COMMIT_URL" "$TIMESTAMP" "$CHANGED_FILES")
+          
+          # 发送 Slack 消息
           curl -X POST "${SLACK_WEBHOOK_URL}" \
             -H 'Content-Type: application/json' \
-            -d '{"text":"📬 New commit to a2a-gateway\n\n👤 Author: '"'"${COMMIT_AUTHOR}"'"'\n🌿 Branch: '"'"${BRANCH}"'"'\n📝 Commit: '"'"${COMMIT_MESSAGE:0:100}"'"'...\n🔗 URL: '"'"${COMMIT_URL}"'"'\n🕐 Time: '"'"${TIMESTAMP}"'"'\n\n📁 Changed files:\n'"'"${CHANGED_FILES}"'"'\n\n🤖 三弟正在分析这次提交..."}'
+            -d "$PAYLOAD"
           
           echo "Slack notification sent successfully"
-ß
