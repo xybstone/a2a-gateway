@@ -19,7 +19,6 @@ jobs:
       - name: Send Slack notification
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_CHANNEL: "#all-forai"
         run: |
           # 准备消息内容
           COMMIT_AUTHOR="${{ github.actor }}"
@@ -27,15 +26,14 @@ jobs:
           COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
           COMMIT_URL="${{ github.event.head_commit.url }}"
           BRANCH="${{ github.ref_name }}"
-          
-          # 格式化时间
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
           
-          # 发送 Slack 消息
+          # 获取变更的文件
+          CHANGED_FILES=$(echo "${{ github.event.head_commit.added }} ${{ github.event.head_commit.modified }}" | tr ' ' '\n' | head -10)
+          
+          # 发送 Slack 消息（使用单行 JSON，避免 heredoc 问题）
           curl -X POST "${SLACK_WEBHOOK_URL}" \
             -H 'Content-Type: application/json' \
-            --data "{
-              \"text\": \"📬 New commit to a2a-gateway\\n\\n👤 Author: ${COMMIT_AUTHOR}\\n🌿 Branch: ${BRANCH}\\n📝 Commit: ${COMMIT_MESSAGE}\\n🔗 URL: ${COMMIT_URL}\\n🕐 Time: ${TIMESTAMP}\\n\\n🤖 三弟正在分析这次提交...\"
-            }"
+            -d '{"text":"📬 New commit to a2a-gateway\n\n👤 Author: '"'"${COMMIT_AUTHOR}"'"'\n🌿 Branch: '"'"${BRANCH}"'"'\n📝 Commit: '"'"${COMMIT_MESSAGE:0:100}"'"'...\n🔗 URL: '"'"${COMMIT_URL}"'"'\n🕐 Time: '"'"${TIMESTAMP}"'"'\n\n📁 Changed files:\n'"'"${CHANGED_FILES}"'"'\n\n🤖 三弟正在分析这次提交..."}'
           
           echo "Slack notification sent successfully"
