@@ -81,24 +81,165 @@ async def run_droid_task(task_id: str, message: Dict[str, Any]) -> Dict[str, Any
 
 
 async def run_claude_task(task_id: str, message: Dict[str, Any]) -> Dict[str, Any]:
-    """Run Claude Code tool task"""
-    logger.debug("Running Claude Code task", task_id=task_id)
-    task_type = message.get("task_type", "fix_bug")
-    task_description = message.get("description", "")
+    """Run Claude Code tool task to generate Dockerfile"""
+    logger.info("Running Claude Code task for Dockerfile generation", task_id=task_id)
+    
+    # Extract parameters
+    task_type = message.get("task_type", "generate_dockerfile")
+    project_description = message.get("project_description", "Generate Dockerfile for Python FastAPI application")
     workdir = message.get("workdir", ".")
-    context_files = message.get("context_files", [])
+    project_type = message.get("project_type", "python")
+    
+    # Check if Claude Code CLI is available
+    claude_available = await check_claude_code_available()
+    
+    if not claude_available:
+        # Fall back to template-based Dockerfile generation
+        logger.info("Claude Code not available, using template", task_id=task_id)
+        dockerfile = generate_dockerfile_from_template(project_description, project_type, workdir)
+        return {
+            "artifacts": [
+                {
+                    "type": "file",
+                    "filename": "Dockerfile",
+                    "content": dockerfile,
+                }
+            ],
+            "summary": f"Generated Dockerfile for {project_type} project using template",
+        }
+    
+    # Use Claude Code to generate Dockerfile
+    prompt = f"""Generate a production-ready Dockerfile for a {project_type} FastAPI application.
 
-    # Create command
-    command = [settings.claude_command, "task", task_type, task_description]
-    if workdir != ".":
-        command.extend(["--workdir", workdir])
-    if context_files:
-        command.extend(["--context", ",".join(context_files)])
+Project Context:
+{project_description}
 
-    logger.debug("Claude Code command created", task_id=task_id, command=command)
+Requirements:
+- Use official Python base image (python:3.11-slim or similar)
+- Set working directory to /app
+- Copy requirements.txt and install dependencies
+- Expose port 8000
+- Use non-root user
+- Add health check endpoint
+- Optimize for production use (multi-stage build if needed)
+- Include proper signal handling
+
+Return the complete Dockerfile content only, no explanations.
+"""
+    
+    command = [
+        settings.claude_command,
+        prompt,
+        "--output", "dockerfile"
+    ]
+    
+    logger.info("Calling Claude Code to generate Dockerfile", task_id=task_id, command=command)
     result = await run_pty_command(task_id, command, workdir)
-    logger.debug("Claude Code task completed", task_id=task_id, result=result)
-    return result
+    
+    # Extract Dockerfile from Claude Code output
+    dockerfile = extract_dockerfile_from_output(result.get("artifacts", []))
+    
+    if dockerfile:
+        logger.info("Dockerfile generated successfully", task_id=task_id)
+        return {
+            "artifacts": [
+                {
+                    "type": "file",
+                    "filename": "Dockerfile",
+                    "content": dockerfile,
+                }
+            ],
+            "summary": f"Generated Dockerfile for {project_type} project using Claude Code",
+        }
+    else:
+        logger.warning("Could not extract Dockerfile from output", task_id=task_id)
+        # Fall back to template
+        dockerfile = generate_dockerfile_from_template(project_description, project_type, workdir)
+        return {
+            "artifacts": [
+                {
+                    "type": "file",
+                    "filename": "Dockerfile",
+                    "content": dockerfile,
+                }
+            ],
+            "summary": f"Generated Dockerfile for {project_type} project using template (fallback)",
+        }
+
+
+async def check_claude_code_available() -> bool:
+    """Check if Claude Code CLI is available"""
+    try:
+        process = await asyncio.create_subprocess_exec(
+            [settings.claude_command, "--version"],
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode == 0:
+            logger.info(f"Claude Code CLI available, version: {stdout.decode().strip()}")
+            return True
+        else:
+            logger.warning(f"Claude Code CLI not available: {stderr.decode()}")
+            return False
+    except Exception as e:
+        logger.error(f"Failed to check Claude Code availability: {e}")
+        return False
+
+
+def generate_dockerfile_from_template(description: str, project_type: str, workdir: str) -> str:
+    """Generate Dockerfile from template"""
+    if project_type.lower() == "python":
+        return f"""# Dockerfile for {description}
+# Generated by a2a-gateway
+
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \\
+    gcc \\
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create non-root user
+RUN useradd -m -s /bin/bash -u appuser appuser
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \\
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"
+
+# Run the application
+CMD ["python", "-m", "uvicorn", "a2a_gateway.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Optimize for production
+# Multi-stage build could be added here for better performance
+"""
+    else:
+        return f"# Dockerfile for {project_type} (generic template)\n# Generated by a2a-gateway\nFROM node:18-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm install --production\nCOPY . .\nUSER node\nEXPOSE 3000\nCMD [\"node\", \"server.js\"]"
+
+
+def extract_dockerfile_from_output(artifacts: list) -> str:
+    """Extract Dockerfile content from Claude Code output"""
+    for artifact in artifacts:
+        if artifact.get("type") == "file" and artifact.get("filename") == "Dockerfile":
+            content = artifact.get("data", {}).get("content", "")
+            if content:
+                return content
+    return ""
 
 
 async def run_pty_command(task_id: str, command: List[str], cwd: str) -> Dict[str, Any]:
