@@ -33,7 +33,7 @@ jobs:
           export MODIFIED_FILES="${{ github.event.head_commit.modified }}"
           export CHANGED_FILES="${ADDED_FILES} ${MODIFIED_FILES}"
           
-          # 使用 jq 构建 JSON payload（安全、可靠）
+          # 使用 jq 构建 JSON payload（使用 --arg 传递环境变量）
           PAYLOAD=$(jq -n \
             --arg author="$COMMIT_AUTHOR" \
             --arg branch="$BRANCH" \
@@ -41,7 +41,7 @@ jobs:
             --arg url="$COMMIT_URL" \
             --arg timestamp="$TIMESTAMP" \
             --arg files="$CHANGED_FILES" \
-            '{"text": "📬 New commit to a2a-gateway\n\n👤 Author: \($author)\n🌿 Branch: \($branch)\n📝 Commit: \($message[0:100])...\n🔗 URL: \($url)\n🕐 Time: \($timestamp)\n\n📁 Changed files:\n\($files)\n\n🤖 三弟正在分析这次提交..."}')
+            '{"text": "📬 New commit to a2a-gateway\n\n👤 Author: \($author)\n🌿 Branch: \($branch)\n📝 Commit: \($message[:100])...\n🔗 URL: \($url)\n🕐 Time: \($timestamp)\n\n📁 Changed files:\n\($files)\n\n🤖 三弟正在分析这次提交..."}')
           
           # 发送 Slack 消息
           curl -X POST "${SLACK_WEBHOOK_URL}" \
