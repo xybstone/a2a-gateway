@@ -21,66 +21,31 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           # 准备消息内容
-          COMMIT_AUTHOR="${{ github.actor }}"
-          COMMIT_SHA="${{ github.sha }}"
-          COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
-          COMMIT_URL="${{ github.event.head_commit.url }}"
-          BRANCH="${{ github.ref_name }}"
-          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          export COMMIT_AUTHOR="${{ github.actor }}"
+          export COMMIT_SHA="${{ github.sha }}"
+          export COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
+          export COMMIT_URL="${{ github.event.head_commit.url }}"
+          export BRANCH="${{ github.ref_name }}"
+          export TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
           
           # 获取变更的文件
-          ADDED_FILES="${{ github.event.head_commit.added }}"
-          MODIFIED_FILES="${{ github.event.head_commit.modified }}"
-          CHANGED_FILES="${ADDED_FILES} ${MODIFIED_FILES}"
+          export ADDED_FILES="${{ github.event.head_commit.added }}"
+          export MODIFIED_FILES="${{ github.event.head_commit.modified }}"
+          export CHANGED_FILES="${ADDED_FILES} ${MODIFIED_FILES}"
           
-          # 使用 Python 构建 JSON payload（自动处理转义）
-          PAYLOAD=$(python3 <<PYTHON
-import json
-import os
-import sys
-
-# 从环境变量获取数据
-commit_author = os.getenv('COMMIT_AUTHOR', '')
-commit_sha = os.getenv('COMMIT_SHA', '')
-commit_message = os.getenv('COMMIT_MESSAGE', '')
-commit_url = os.getenv('COMMIT_URL', '')
-branch = os.getenv('BRANCH', '')
-timestamp = os.getenv('TIMESTAMP', '')
-changed_files = os.getenv('CHANGED_FILES', '')
-
-# 格式化文件列表
-if changed_files:
-    files_list = [f for f in changed_files.split() if f]
-    formatted_files = '\n'.join([f"- {f}" for f in files_list])
-else:
-    formatted_files = 'No files changed'
-
-# 构建 Slack 消息
-message = f"""📬 New commit to a2a-gateway
-
-👤 Author: {commit_author}
-🌿 Branch: {branch}
-📝 Commit: {commit_message[:100]}...
-🔗 URL: {commit_url}
-🕐 Time: {timestamp}
-
-📁 Changed files:
-{formatted_files}
-
-🤖 三弟正在分析这次提交...
-"""
-
-# 构建 JSON payload
-data = {"text": message}
-
-# 输出 JSON（供 curl 使用）
-print(json.dumps(data))
-PYTHON
-)
+          # 使用 jq 构建 JSON payload（安全、可靠）
+          PAYLOAD=$(jq -n \
+            --arg author="$COMMIT_AUTHOR" \
+            --arg branch="$BRANCH" \
+            --arg message="$COMMIT_MESSAGE" \
+            --arg url="$COMMIT_URL" \
+            --arg timestamp="$TIMESTAMP" \
+            --arg files="$CHANGED_FILES" \
+            '{"text": "📬 New commit to a2a-gateway\n\n👤 Author: \($author)\n🌿 Branch: \($branch)\n📝 Commit: \($message[0:100])...\n🔗 URL: \($url)\n🕐 Time: \($timestamp)\n\n📁 Changed files:\n\($files)\n\n🤖 三弟正在分析这次提交..."}')
           
           # 发送 Slack 消息
           curl -X POST "${SLACK_WEBHOOK_URL}" \
             -H 'Content-Type: application/json' \
-            -d "${PAYLOAD}"
+            -d "$PAYLOAD"
           
           echo "Slack notification sent successfully"
