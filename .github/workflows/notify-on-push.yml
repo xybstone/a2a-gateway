@@ -16,16 +16,13 @@ jobs:
     name: Send notification to Slack
     runs-on: ubuntu-latest
     steps:
-      - name: Send Slack notification
+      - name: Send notification
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "📬 New commit to a2a-gateway\n\n👤 Author: ${{ github.actor }}\n🌿 Branch: main\n📝 Commit: ${{ github.event.head_commit.message }}\n🔗 URL: ${{ github.event.head_commit.url }}\n\n🤖 三弟正在分析这次提交..."
+            }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          # 简化 Slack 消息 - 不使用 jq 或 Python
-          echo "Sending notification to Slack..."
-          
-          # 直接调用 curl
-          curl -X POST "${SLACK_WEBHOOK_URL}" \
-            -H 'Content-Type: application/json' \
-            -d '{
-              "text": "📬 New commit to a2a-gateway\n\n👤 Author: '"'"${{ github.actor }}"'"'\n🌿 Branch: main\n📝 Commit: '"'"${{ github.event.head_commit.message }}"'"'\n🔗 URL: '"'"${{ github.event.head_commit.url }}"'"'\n🕐 Time: '"'"$(date -u +"%Y-%m-%d %H:%M:%S UTC")"'"'\n\n🤖 三弟正在分析这次提交..."
-            }'
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
