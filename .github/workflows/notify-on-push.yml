@@ -28,9 +28,6 @@ jobs:
           COMMIT_URL="${{ github.event.head_commit.url }}"
           BRANCH="${{ github.ref_name }}"
           
-          # 获取变更的文件（最多 10 个）
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD | head -10 | tr '\n' ',' | sed 's/,$//')
-          
           # 格式化时间
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
           
@@ -38,7 +35,7 @@ jobs:
           curl -X POST "${SLACK_WEBHOOK_URL}" \
             -H 'Content-Type: application/json' \
             --data "{
-              \"text\": \"📬 New commit to a2a-gateway\\n\\n👤 Author: ${COMMIT_AUTHOR}\\n🔗 Branch: ${BRANCH}\\n📝 Commit: ${COMMIT_MESSAGE:0:100}${COMMIT_MESSAGE: +1:}...\\n🔗 URL: ${COMMIT_URL}\\n🕐 Time: ${TIMESTAMP}\\n📁 Changed files: ${CHANGED_FILES}\\n\\n🤖 三弟正在分析这次提交...\"
+              \"text\": \"📬 New commit to a2a-gateway\\n\\n👤 Author: ${COMMIT_AUTHOR}\\n🌿 Branch: ${BRANCH}\\n📝 Commit: ${COMMIT_MESSAGE}\\n🔗 URL: ${COMMIT_URL}\\n🕐 Time: ${TIMESTAMP}\\n\\n🤖 三弟正在分析这次提交...\"
             }"
           
           echo "Slack notification sent successfully"
