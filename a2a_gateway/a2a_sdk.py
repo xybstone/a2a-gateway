@@ -23,6 +23,20 @@ MOCK_AGENT_CARD = {
                 },
                 "required": ["bug_description"],
             },
+        },
+        {
+            "id": "generate_dockerfile",
+            "name": "Generate Dockerfile",
+            "description": "Generate a production-ready Dockerfile for the project",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "project_description": {"type": "string"},
+                    "workdir": {"type": "string"},
+                    "project_type": {"type": "string", "enum": ["python", "go", "nodejs"]},
+                },
+                "required": ["workdir"],
+            },
         }
     ],
 }

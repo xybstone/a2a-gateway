@@ -118,6 +118,45 @@ async def run_pty_command(task_id: str, command: List[str], cwd: str) -> Dict[st
         return {"artifacts": [], "error": error_msg}
 
 
+async def generate_dockerfile_task(task_id: str, message: Dict[str, Any]) -> Dict[str, Any]:
+    """Generate Dockerfile using Claude Code"""
+    logger.info("Starting Dockerfile generation task", task_id=task_id)
+    try:
+        async with task_semaphore:
+            logger.debug("Task acquired semaphore", task_id=task_id)
+            
+            # Extract parameters
+            project_description = message.get("project_description", "")
+            workdir = message.get("workdir", ".")
+            project_type = message.get("project_type", "python")
+            
+            # Prepare task for Claude Code
+            task_message = {
+                "task_type": "generate_dockerfile",
+                "description": f"Generate a production-ready Dockerfile for {project_type or 'Python'} project",
+                "workdir": workdir,
+                "project_context": project_description
+            }
+            
+            # Run Claude Code task
+            logger.debug("Running Claude Code to generate Dockerfile", task_id=task_id)
+            result = await run_claude_task(task_id, task_message)
+            
+            if "error" in result:
+                logger.error("Dockerfile generation failed", task_id=task_id, error=result["error"])
+                await task_store.update_task_status(task_id, "failed")
+                await task_store.update_task_result(task_id, result)
+            else:
+                logger.info("Dockerfile generation completed", task_id=task_id)
+                await task_store.update_task_status(task_id, "completed")
+                await task_store.update_task_result(task_id, result)
+
+    except Exception as e:
+        logger.error("Dockerfile generation task exception", task_id=task_id, error=str(e))
+        await task_store.update_task_status(task_id, "failed")
+        await task_store.update_task_result(task_id, {"artifacts": [], "error": str(e)})
+
+
 def _run_pty_command_blocking(
     task_id: str, command: List[str], cwd: str
 ) -> Dict[str, Any]:
